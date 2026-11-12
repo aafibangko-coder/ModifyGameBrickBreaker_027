@@ -376,3 +376,87 @@ class Laser:
         pygame.draw.rect(screen, CYAN, self.rect, border_radius=3)
         pygame.draw.rect(screen, WHITE, self.rect, 1, border_radius=3)
 
+
+# ------------------------- LEVEL GENERATION -------------------------
+
+def create_level(level):
+    blocks = []
+    cols = 11
+    block_w, block_h = 52, 21
+    gap_x, gap_y = 9, 9
+    total = cols * block_w + (cols - 1) * gap_x
+    start_x = (WIDTH - total) // 2
+    rows = min(4 + (level - 1) // 2, 7)
+
+    for row in range(rows):
+        for col in range(cols):
+            # A few gaps make later levels less repetitive.
+            if level >= 4 and (row + col + level) % 13 == 0:
+                continue
+            x = start_x + col * (block_w + gap_x)
+            y = 105 + row * (block_h + gap_y)
+            health = 1 + min(2, (level - 1) // 3)
+            kind = "bomb" if random.random() < 0.10 else "normal"
+            blocks.append(Block(x, y, health, kind))
+
+    boss = Boss(level) if level % 3 == 0 else None
+    return blocks, boss
+
+
+# ------------------------- GAME STATE -------------------------
+
+def new_game():
+    level = 1
+    blocks, boss = create_level(level)
+    return {
+        "level": level,
+        "score": 0,
+        "coins": 0,
+        "lives": 3,
+        "paddle": Paddle(),
+        "balls": [Ball()],
+        "blocks": blocks,
+        "boss": boss,
+        "items": [],
+        "coins_falling": [],
+        "lasers": [],
+        "laser_ammo": 0,
+        "slow_until": 0,
+        "fire_until": 0,
+        "magnet_until": 0,
+        "shield_until": 0,
+        "shield_used": False,
+        "level_banner_until": pygame.time.get_ticks() + 1800,
+        "saved": False,
+        "player": "Player"
+    }
+
+
+def activate_item(item_type, game):
+    now = pygame.time.get_ticks()
+    paddle = game["paddle"]
+    balls = game["balls"]
+
+    if item_type == "LONG":
+        paddle.activate_long()
+    elif item_type == "MULTI":
+        active = [b for b in balls if not b.stuck]
+        if active:
+            source = active[0]
+            balls.append(source.clone(-1))
+            balls.append(source.clone(1))
+        else:
+            balls.append(Ball())
+    elif item_type == "SLOW":
+        game["slow_until"] = now + POWER_DURATION
+    elif item_type == "LIFE":
+        game["lives"] = min(5, game["lives"] + 1)
+    elif item_type == "FIRE":
+        game["fire_until"] = now + POWER_DURATION
+    elif item_type == "LASER":
+        game["laser_ammo"] = min(30, game["laser_ammo"] + 12)
+    elif item_type == "MAGNET":
+        game["magnet_until"] = now + POWER_DURATION
+    elif item_type == "SHIELD":
+        game["shield_until"] = now + POWER_DURATION
+        game["shield_used"] = False
