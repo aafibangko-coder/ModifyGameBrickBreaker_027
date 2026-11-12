@@ -539,3 +539,111 @@ def save_game_result(game):
     add_total_coins(game["coins"])
     game["saved"] = True
 
+
+# ------------------------- SCREENS -------------------------
+
+def menu_screen():
+    buttons = {
+        "START": pygame.Rect(WIDTH // 2 - 120, 235, 240, 48),
+        "LEADERBOARD": pygame.Rect(WIDTH // 2 - 120, 300, 240, 48),
+        "QUIT": pygame.Rect(WIDTH // 2 - 120, 365, 240, 48)
+    }
+    while True:
+        clock.tick(FPS)
+        mouse = pygame.mouse.get_pos()
+        draw_background()
+        draw_text("BLOCK BREAKER", WIDTH // 2, 115, CYAN, BIG, True)
+        draw_text("ULTIMATE ARCADE EDITION", WIDTH // 2, 165,
+                  GRAY, FONT, True)
+        draw_text(f"Total coins: {get_total_coins()}",
+                  WIDTH // 2, 205, GOLD, FONT, True)
+
+        for name, rect in buttons.items():
+            draw_button(name, rect, mouse,
+                        GREEN if name == "START" else BLUE)
+
+        draw_text("Move: LEFT/RIGHT or A/D   |   Laser: X   |   Pause: P",
+                  WIDTH // 2, 455, GRAY, SMALL, True)
+        draw_text("SPACE: launch ball   |   ESC: quit/back",
+                  WIDTH // 2, 480, GRAY, SMALL, True)
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return "QUIT"
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return "QUIT"
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for name, rect in buttons.items():
+                    if rect.collidepoint(event.pos):
+                        if name == "START":
+                            return "START"
+                        if name == "LEADERBOARD":
+                            leaderboard_screen()
+                        if name == "QUIT":
+                            return "QUIT"
+
+
+def leaderboard_screen():
+    back_rect = pygame.Rect(WIDTH // 2 - 90, HEIGHT - 80, 180, 44)
+    while True:
+        clock.tick(FPS)
+        draw_background()
+        draw_text("LEADERBOARD - TOP 10", WIDTH // 2, 65,
+                  GOLD, BIG, True)
+        rows = get_leaderboard()
+        if not rows:
+            draw_text("Belum ada skor tersimpan.", WIDTH // 2, 150,
+                      GRAY, FONT, True)
+        else:
+            draw_text("RANK     PLAYER          SCORE      LEVEL      COINS",
+                      115, 125, CYAN, SMALL)
+            for i, row in enumerate(rows):
+                player, score, level, coins, created = row
+                line = f"{i+1:>2}.       {player:<15} {score:>7}       {level:>3}       {coins:>4}"
+                draw_text(line, 115, 160 + i * 30, WHITE, SMALL)
+        draw_button("BACK", back_rect, pygame.mouse.get_pos(), BLUE)
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_RETURN):
+                return
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if back_rect.collidepoint(event.pos):
+                    return
+
+
+def game_over_screen(game, won=False):
+    save_game_result(game)
+    name = game["player"]
+    while True:
+        clock.tick(FPS)
+        draw_background()
+        heading = "YOU WIN!" if won else "GAME OVER"
+        color = GREEN if won else RED
+        draw_text(heading, WIDTH // 2, 170, color, BIG, True)
+        draw_text(f"Player: {name}", WIDTH // 2, 245, WHITE, FONT, True)
+        draw_text(f"Score: {game['score']}     Level: {game['level']}",
+                  WIDTH // 2, 280, WHITE, FONT, True)
+        draw_text(f"Coins collected: {game['coins']}",
+                  WIDTH // 2, 315, GOLD, FONT, True)
+        draw_text("Press ENTER to return to menu",
+                  WIDTH // 2, 390, CYAN, FONT, True)
+        draw_text("Press ESC to quit",
+                  WIDTH // 2, 425, GRAY, SMALL, True)
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    return
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+
