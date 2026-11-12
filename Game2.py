@@ -112,3 +112,32 @@ def get_leaderboard():
             LIMIT 10
         """).fetchall()
 
+
+# ------------------------- DRAW HELPERS -------------------------
+
+def draw_text(text, x, y, color=WHITE, font=FONT, center=False):
+    image = font.render(str(text), True, color)
+    rect = image.get_rect()
+    if center:
+        rect.center = (x, y)
+    else:
+        rect.topleft = (x, y)
+    screen.blit(image, rect)
+
+
+def draw_background():
+    screen.fill(BLACK)
+    # Subtle stars
+    for i in range(45):
+        x = (i * 97 + 31) % WIDTH
+        y = (i * 53 + 17) % HEIGHT
+        pygame.draw.circle(screen, (35, 43, 67), (x, y), 1)
+
+
+def draw_button(text, rect, mouse_pos, color=BLUE):
+    hovered = rect.collidepoint(mouse_pos)
+    fill = tuple(min(255, c + 35) for c in color) if hovered else color
+    pygame.draw.rect(screen, fill, rect, border_radius=9)
+    pygame.draw.rect(screen, WHITE, rect, 2, border_radius=9)
+    draw_text(text, rect.centerx, rect.centery, WHITE, MID, center=True)
+
