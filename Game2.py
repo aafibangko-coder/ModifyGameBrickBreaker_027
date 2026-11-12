@@ -319,3 +319,60 @@ class Boss:
         draw_text(f"BOSS HP: {max(0, self.hp)}/{self.max_hp}",
                   WIDTH // 2, 27, WHITE, SMALL, True)
 
+
+class FallingItem:
+    COLORS = {
+        "LONG": CYAN, "MULTI": PURPLE, "SLOW": GREEN,
+        "LIFE": RED, "FIRE": ORANGE, "LASER": YELLOW,
+        "MAGNET": PINK, "SHIELD": BLUE
+    }
+    LABELS = {
+        "LONG": "L", "MULTI": "M", "SLOW": "S", "LIFE": "+",
+        "FIRE": "F", "LASER": "X", "MAGNET": "G", "SHIELD": "D"
+    }
+
+    def __init__(self, x, y, item_type):
+        self.x = float(x)
+        self.y = float(y)
+        self.item_type = item_type
+        self.rect = pygame.Rect(int(x - 12), int(y - 12), 24, 24)
+
+    def update(self):
+        self.y += 2.7
+        self.rect.center = (int(self.x), int(self.y))
+
+    def draw(self):
+        color = self.COLORS[self.item_type]
+        pygame.draw.circle(screen, color, (int(self.x), int(self.y)), 12)
+        pygame.draw.circle(screen, WHITE, (int(self.x), int(self.y)), 12, 1)
+        draw_text(self.LABELS[self.item_type], self.x, self.y,
+                  BLACK, SMALL, True)
+
+
+class Coin:
+    def __init__(self, x, y):
+        self.x = float(x)
+        self.y = float(y)
+        self.rect = pygame.Rect(int(x - 8), int(y - 8), 16, 16)
+
+    def update(self):
+        self.y += 3.2
+        self.rect.center = (int(self.x), int(self.y))
+
+    def draw(self):
+        pygame.draw.circle(screen, GOLD, (int(self.x), int(self.y)), 8)
+        pygame.draw.circle(screen, WHITE, (int(self.x), int(self.y)), 8, 1)
+        draw_text("$", self.x, self.y, BLACK, SMALL, True)
+
+
+class Laser:
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(int(x - 3), int(y - 15), 6, 18)
+
+    def update(self):
+        self.rect.y -= 9
+
+    def draw(self):
+        pygame.draw.rect(screen, CYAN, self.rect, border_radius=3)
+        pygame.draw.rect(screen, WHITE, self.rect, 1, border_radius=3)
+
