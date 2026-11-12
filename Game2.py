@@ -249,3 +249,73 @@ class Ball:
         color = ORANGE if fire_active else YELLOW
         pygame.draw.circle(screen, color, (round(self.x), round(self.y)), self.radius)
         pygame.draw.circle(screen, WHITE, (round(self.x - 2), round(self.y - 2)), 2)
+
+
+class Block:
+    def __init__(self, x, y, health=1, kind="normal"):
+        self.rect = pygame.Rect(x, y, 52, 21)
+        self.health = health
+        self.kind = kind
+        self.max_health = health
+
+    def hit(self):
+        self.health -= 1
+
+    def draw(self):
+        if self.kind == "bomb":
+            color = ORANGE
+        elif self.max_health >= 3:
+            color = PURPLE
+        elif self.max_health == 2:
+            color = BLUE
+        else:
+            color = GREEN
+        pygame.draw.rect(screen, color, self.rect, border_radius=4)
+        pygame.draw.rect(screen, WHITE, self.rect, 1, border_radius=4)
+        if self.kind == "bomb":
+            draw_text("B", self.rect.centerx, self.rect.centery, WHITE, SMALL, True)
+        elif self.max_health > 1:
+            draw_text(str(max(0, self.health)), self.rect.centerx,
+                      self.rect.centery, WHITE, SMALL, True)
+
+
+class Boss:
+    def __init__(self, level):
+        self.width = 190
+        self.height = 34
+        self.rect = pygame.Rect(WIDTH // 2 - self.width // 2, 78,
+                                self.width, self.height)
+        self.max_hp = 18 + level * 4
+        self.hp = self.max_hp
+        self.speed = 2.2 + level * 0.12
+        self.direction = 1
+        self.last_hit = 0
+
+    def update(self):
+        self.rect.x += int(self.speed * self.direction)
+        if self.rect.left <= 15:
+            self.rect.left = 15
+            self.direction = 1
+        elif self.rect.right >= WIDTH - 15:
+            self.rect.right = WIDTH - 15
+            self.direction = -1
+
+    def hit(self):
+        now = pygame.time.get_ticks()
+        if now - self.last_hit > 180:
+            self.hp -= 1
+            self.last_hit = now
+            return True
+        return False
+
+    def draw(self):
+        pygame.draw.rect(screen, (145, 45, 75), self.rect, border_radius=8)
+        pygame.draw.rect(screen, PINK, self.rect, 3, border_radius=8)
+        bar = pygame.Rect(170, 42, 460, 9)
+        pygame.draw.rect(screen, (65, 35, 50), bar, border_radius=4)
+        fill = bar.copy()
+        fill.width = int(bar.width * max(0, self.hp) / self.max_hp)
+        pygame.draw.rect(screen, PINK, fill, border_radius=4)
+        draw_text(f"BOSS HP: {max(0, self.hp)}/{self.max_hp}",
+                  WIDTH // 2, 27, WHITE, SMALL, True)
+
