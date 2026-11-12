@@ -460,3 +460,82 @@ def activate_item(item_type, game):
     elif item_type == "SHIELD":
         game["shield_until"] = now + POWER_DURATION
         game["shield_used"] = False
+
+
+def explode_bomb(block, game):
+    # Destroys nearby blocks in a radius.
+    radius = 92
+    center = block.rect.center
+    destroyed = []
+    for other in game["blocks"][:]:
+        if other is block:
+            continue
+        distance = math.hypot(
+            other.rect.centerx - center[0],
+            other.rect.centery - center[1]
+        )
+        if distance <= radius:
+            destroyed.append(other)
+
+    for other in destroyed:
+        if other in game["blocks"]:
+            game["blocks"].remove(other)
+            game["score"] += 15
+            if random.random() < 0.18:
+                game["coins_falling"].append(
+                    Coin(other.rect.centerx, other.rect.centery)
+                )
+
+
+def hit_block(block, game):
+    block.hit()
+    if block.health <= 0:
+        if block in game["blocks"]:
+            game["blocks"].remove(block)
+        game["score"] += 10
+
+        if block.kind == "bomb":
+            explode_bomb(block, game)
+
+        # Chance for a falling power-up or coin.
+        if random.random() < 0.24:
+            item_type = random.choice([
+                "LONG", "MULTI", "SLOW", "LIFE",
+                "FIRE", "LASER", "MAGNET", "SHIELD"
+            ])
+            game["items"].append(
+                FallingItem(block.rect.centerx, block.rect.centery, item_type)
+            )
+        elif random.random() < 0.35:
+            game["coins_falling"].append(
+                Coin(block.rect.centerx, block.rect.centery)
+            )
+    else:
+        game["score"] += 5
+
+
+def advance_level(game):
+    game["level"] += 1
+    game["blocks"], game["boss"] = create_level(game["level"])
+    game["items"].clear()
+    game["coins_falling"].clear()
+    game["lasers"].clear()
+    game["balls"] = [Ball()]
+    game["level_banner_until"] = pygame.time.get_ticks() + 1800
+    game["paddle"].rect.centerx = WIDTH // 2
+    game["slow_until"] = 0
+    game["fire_until"] = 0
+    game["magnet_until"] = 0
+    game["shield_until"] = 0
+    game["shield_used"] = False
+
+
+def save_game_result(game):
+    if game["saved"]:
+        return
+    save_result(
+        game["player"], game["score"], game["level"], game["coins"]
+    )
+    add_total_coins(game["coins"])
+    game["saved"] = True
+
