@@ -647,3 +647,240 @@ def game_over_screen(game, won=False):
                     pygame.quit()
                     sys.exit()
 
+
+# ------------------------- MAIN GAME LOOP -------------------------
+
+def play_game():
+    game = new_game()
+    paused = False
+    running = True
+
+    while running:
+        clock.tick(FPS)
+        now = pygame.time.get_ticks()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                save_game_result(game)
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    save_game_result(game)
+                    return
+                if event.key == pygame.K_p:
+                    paused = not paused
+                if event.key == pygame.K_SPACE and not paused:
+                    for ball in game["balls"]:
+                        ball.launch()
+                if event.key == pygame.K_x and not paused:
+                    if game["laser_ammo"] > 0:
+                        paddle = game["paddle"]
+                        game["lasers"].append(
+                            Laser(paddle.rect.centerx - 22, paddle.rect.top)
+                        )
+                        game["lasers"].append(
+                            Laser(paddle.rect.centerx + 22, paddle.rect.top)
+                        )
+                        game["laser_ammo"] -= 1
+
+        if not paused:
+            keys = pygame.key.get_pressed()
+            paddle = game["paddle"]
+            paddle.update(keys)
+
+            slow_active = now < game["slow_until"]
+            fire_active = now < game["fire_until"]
+            magnet_active = now < game["magnet_until"]
+            shield_active = now < game["shield_until"]
+
+            # Balls
+            for ball in game["balls"][:]:
+                fell = ball.update(slow_active, paddle)
+                if fell:
+                    if shield_active and not game["shield_used"]:
+                        game["shield_used"] = True
+                        ball.x = random.randint(80, WIDTH - 80)
+                        ball.y = HEIGHT - 60
+                        ball.vy = -abs(ball.vy)
+                        ball.stuck = False
+                        ball.update_rect()
+                    else:
+                        game["balls"].remove(ball)
+                    continue
+
+                if not ball.stuck and ball.vy > 0 and ball.rect.colliderect(paddle.rect):
+                    if magnet_active:
+                        ball.stuck = True
+                        ball.vx = 0
+                        ball.vy = 0
+                    else:
+                        ball.bounce_paddle(paddle)
+
+                # Ball hits regular blocks
+                for block in game["blocks"][:]:
+                    if ball.rect.colliderect(block.rect):
+                        hit_block(block, game)
+                        if not fire_active:
+                            ball.vy *= -1
+                            # Place the ball outside the side it came from.
+                            ball.y = (
+                                block.rect.bottom + ball.radius
+                                if ball.vy > 0
+                                else block.rect.top - ball.radius
+                            )
+                            ball.update_rect()
+                        break
+
+                # Ball hits boss
+                boss = game["boss"]
+                if boss and ball.rect.colliderect(boss.rect):
+                    if boss.hit():
+                        game["score"] += 20
+                    if not fire_active:
+                        ball.vy = abs(ball.vy)
+                        ball.update_rect()
+
+            # Boss movement
+            if game["boss"]:
+                game["boss"].update()
+                if game["boss"].hp <= 0:
+                    game["score"] += 300
+                    game["coins_falling"].append(
+                        Coin(game["boss"].rect.centerx, game["boss"].rect.centery)
+                    )
+                    game["boss"] = None
+
+            # Laser projectiles
+            for laser in game["lasers"][:]:
+                laser.update()
+                if laser.rect.bottom < PLAY_TOP:
+                    game["lasers"].remove(laser)
+                    continue
+
+                hit_something = False
+                for block in game["blocks"][:]:
+                    if laser.rect.colliderect(block.rect):
+                        hit_block(block, game)
+                        hit_something = True
+                        break
+
+                if not hit_something and game["boss"] and laser.rect.colliderect(game["boss"].rect):
+                    if game["boss"].hit():
+                        game["score"] += 20
+                    hit_something = True
+
+                if hit_something and laser in game["lasers"]:
+                    game["lasers"].remove(laser)
+
+            # Falling power-ups
+            for item in game["items"][:]:
+                item.update()
+                if item.rect.colliderect(paddle.rect):
+                    activate_item(item.item_type, game)
+                    game["items"].remove(item)
+                elif item.y > HEIGHT:
+                    game["items"].remove(item)
+
+            # Falling coins
+            for coin in game["coins_falling"][:]:
+                coin.update()
+                if coin.rect.colliderect(paddle.rect):
+                    game["coins"] += 1
+                    game["score"] += 5
+                    game["coins_falling"].remove(coin)
+                elif coin.y > HEIGHT:
+                    game["coins_falling"].remove(coin)
+
+            # Lose a life when all balls are gone
+            if not game["balls"]:
+                game["lives"] -= 1
+                if game["lives"] > 0:
+                    game["balls"] = [Ball()]
+                else:
+                    game_over_screen(game, won=False)
+                    return
+
+            # Level completed when blocks and boss are cleared
+            if not game["blocks"] and game["boss"] is None:
+                if game["level"] >= 10:
+                    game_over_screen(game, won=True)
+                    return
+                advance_level(game)
+
+        # Draw
+        draw_background()
+        pygame.draw.line(screen, (45, 55, 80), (0, PLAY_TOP), (WIDTH, PLAY_TOP), 2)
+
+        for block in game["blocks"]:
+            block.draw()
+        if game["boss"]:
+            game["boss"].draw()
+        for item in game["items"]:
+            item.draw()
+        for coin in game["coins_falling"]:
+            coin.draw()
+        for laser in game["lasers"]:
+            laser.draw()
+
+        game["paddle"].draw()
+        for ball in game["balls"]:
+            ball.draw(now < game["fire_until"])
+
+        # HUD
+        draw_text(f"Score: {game['score']}", 14, 13, WHITE, SMALL)
+        draw_text(f"Level: {game['level']}/10", 150, 13, WHITE, SMALL)
+        draw_text(f"Lives: {game['lives']}", 275, 13, WHITE, SMALL)
+        draw_text(f"Coins: {game['coins']}", 380, 13, GOLD, SMALL)
+        draw_text(f"Laser ammo: {game['laser_ammo']}", 490, 13, CYAN, SMALL)
+        draw_text("P: Pause | X: Laser | SPACE: Launch", 635, 13, GRAY, SMALL)
+
+        # Active effects
+        effects = []
+        if game["paddle"].long_until > now:
+            effects.append("LONG")
+        if game["slow_until"] > now:
+            effects.append("SLOW")
+        if game["fire_until"] > now:
+            effects.append("FIRE")
+        if game["magnet_until"] > now:
+            effects.append("MAGNET")
+        if game["shield_until"] > now and not game["shield_used"]:
+            effects.append("SHIELD")
+        if effects:
+            draw_text("ACTIVE: " + " / ".join(effects), 15, HEIGHT - 27,
+                      YELLOW, SMALL)
+
+        if now < game["level_banner_until"]:
+            draw_text(f"LEVEL {game['level']}", WIDTH // 2, HEIGHT // 2,
+                      CYAN, BIG, True)
+
+        if paused:
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 165))
+            screen.blit(overlay, (0, 0))
+            draw_text("PAUSED", WIDTH // 2, HEIGHT // 2 - 20,
+                      YELLOW, BIG, True)
+            draw_text("Press P to continue", WIDTH // 2, HEIGHT // 2 + 35,
+                      WHITE, FONT, True)
+
+        pygame.display.flip()
+
+
+def main():
+    init_database()
+
+    while True:
+        choice = menu_screen()
+        if choice == "QUIT":
+            break
+        if choice == "START":
+            play_game()
+
+    pygame.quit()
+    sys.exit()
+
+
+if __name__ == "__main__":
+    main()
